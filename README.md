@@ -2,7 +2,8 @@
 
 после запуска кафки прописать
 
-```docker exec -it kafka kafka-topics.sh \
+```
+docker exec -it kafka kafka-topics.sh \
   --create \
   --topic test-topic \
   --bootstrap-server localhost:9094 \
@@ -11,7 +12,8 @@
 ```
 
 Пример кода для заполнения кафки:
-```import json
+```
+import json
 import sys
 from confluent_kafka import Producer
 
