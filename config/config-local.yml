@@ -1,0 +1,30 @@
+server:
+  Port: :8082
+  Mode: Development
+
+logger:
+  Development: true
+  DisableCaller: false
+  DisableStacktrace: false
+  Encoding: json
+  Level: info
+
+postgres:
+  Host: db
+  Port: 5432
+  User: backend
+  Password: 123123123a
+  DbName: wb_l0
+  SslMode: disable
+
+kafka:
+  orders:
+    brokers:
+      - "kafka:9092"
+    Topic:
+      "test-topic"
+    GroupId:
+      "1"
+
+cache:
+  capacity: 100
