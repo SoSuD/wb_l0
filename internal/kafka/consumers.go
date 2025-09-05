@@ -2,8 +2,9 @@ package kafka
 
 import (
 	"context"
-	"github.com/segmentio/kafka-go"
 	"time"
+
+	"github.com/segmentio/kafka-go"
 )
 
 func (k *Kafka) Consume(ctx context.Context, f HandlerFunc) error {

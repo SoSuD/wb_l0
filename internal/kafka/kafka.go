@@ -1,12 +1,13 @@
 package kafka
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/segmentio/kafka-go"
 	"log"
 	"time"
 	"wb_l0/config"
 	"wb_l0/pkg/logger"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/segmentio/kafka-go"
 )
 
 type Kafka struct {

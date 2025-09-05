@@ -1,8 +1,9 @@
 package http
 
 import (
-	"github.com/gin-gonic/gin"
 	"wb_l0/internal/orders"
+
+	"github.com/gin-gonic/gin"
 )
 
 func MapOrdersRoutes(ordersGroup *gin.RouterGroup, h orders.Handlers) {

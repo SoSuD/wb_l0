@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"wb_l0/config"
 	"wb_l0/internal/kafka"
 	"wb_l0/internal/server"
 	"wb_l0/pkg/logger"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {

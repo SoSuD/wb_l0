@@ -2,11 +2,12 @@ package repository
 
 import (
 	"context"
+	"wb_l0/internal/orders"
+	"wb_l0/models"
+
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"wb_l0/internal/orders"
-	"wb_l0/models"
 )
 
 type ordersRepo struct {

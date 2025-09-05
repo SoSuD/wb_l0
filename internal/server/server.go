@@ -2,14 +2,15 @@ package server
 
 import (
 	"fmt"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"wb_l0/config"
 	"wb_l0/internal/kafka"
 	"wb_l0/internal/orders/cache"
 	"wb_l0/models"
 	"wb_l0/pkg/logger"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {

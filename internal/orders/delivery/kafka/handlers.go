@@ -3,10 +3,11 @@ package kafka
 import (
 	"context"
 	"encoding/json"
-	"github.com/segmentio/kafka-go"
 	"wb_l0/internal/orders"
 	"wb_l0/models"
 	"wb_l0/pkg/logger"
+
+	"github.com/segmentio/kafka-go"
 )
 
 type OrdersHandler struct {

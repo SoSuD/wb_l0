@@ -1,10 +1,11 @@
 package http
 
 import (
-	"github.com/gin-gonic/gin"
 	"wb_l0/internal/orders"
 	"wb_l0/models"
 	"wb_l0/pkg/logger"
+
+	"github.com/gin-gonic/gin"
 )
 
 type OrdersHandler struct {
