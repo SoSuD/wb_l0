@@ -44,6 +44,5 @@ func (h *OrdersHandler) GetById() gin.HandlerFunc {
 			return
 		}
 		c.JSON(200, response{Order: order})
-		return
 	}
 }
