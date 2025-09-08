@@ -1,7 +1,11 @@
 package orders
 
-import "github.com/segmentio/kafka-go"
+import (
+	"context"
+
+	"github.com/segmentio/kafka-go"
+)
 
 type Consumer interface {
-	Create(msg *kafka.Message) error
+	Create(ctx context.Context, msg *kafka.Message) error
 }

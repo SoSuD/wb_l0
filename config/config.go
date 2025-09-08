@@ -27,8 +27,9 @@ type Logger struct {
 	Level             string
 }
 type Server struct {
-	Port string
-	Mode string
+	Port            string
+	Mode            string
+	ShutdownTimeout int
 }
 
 type Postgres struct {

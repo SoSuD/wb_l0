@@ -11,11 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) Init(r *gin.Engine, config config.Config) error {
+func (s *Server) Init(ctx context.Context, r *gin.Engine, config config.Config) error {
 
 	oRepo := ordersRepo.NewOrdersRepo(s.db)
 	oUC := ordersUC.NewOrdersUC(s.logger, oRepo, s.oCache)
-	err := oUC.PutLastCache(context.Background(), config.Cache.Capacity)
+	err := oUC.PutLastCache(ctx, config.Cache.Capacity)
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (s *Server) Init(r *gin.Engine, config config.Config) error {
 	ordersHttp.MapOrdersRoutes(ordersGroup, oH)
 
 	ohandler := OrdersConsumer.NewOrdersHandler(s.logger, oUC)
-	OrdersConsumer.MapOrdersConsumers(s.oKafka, ohandler)
+	OrdersConsumer.StartConsumers(ctx, &s.wg, s.oKafka, ohandler)
 
 	return nil
 }

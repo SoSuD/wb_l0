@@ -1,6 +1,7 @@
 server:
   Port: :8082
   Mode: Development
+  ShutdownTimeout: 15
 
 logger:
   Development: true

@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"context"
 	"log"
 	"time"
 	"wb_l0/config"
@@ -16,7 +17,7 @@ type Kafka struct {
 	logger logger.Logger
 }
 
-type HandlerFunc func(msg *kafka.Message) error
+type HandlerFunc func(ctx context.Context, msg *kafka.Message) error
 
 func New(config config.Kafka, db *pgxpool.Pool, logger logger.Logger) *Kafka {
 	return &Kafka{

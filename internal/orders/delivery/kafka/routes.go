@@ -2,15 +2,23 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"log"
+	"sync"
 	"wb_l0/internal/kafka"
 )
 
-func MapOrdersConsumers(kafka *kafka.Kafka, handler *OrdersHandler) {
+func StartConsumers(ctx context.Context, wg *sync.WaitGroup, kafka *kafka.Kafka, handler *OrdersHandler) {
+	wg.Add(1)
 	go func() {
-		err := kafka.Consume(context.Background(), handler.Create)
+		defer wg.Done()
+		err := kafka.Consume(ctx, handler.Create)
 		if err != nil {
-			log.Fatal("Failed to run kafkaConsumer")
+			if errors.Is(err, context.Canceled) {
+				log.Println("Kafka consumer terminated by ctx")
+			} else {
+				log.Printf("Failed to run kafkaConsumer: %e", err)
+			}
 		}
 	}()
 }

@@ -22,7 +22,8 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
   web:
     build:
       context: ./web
