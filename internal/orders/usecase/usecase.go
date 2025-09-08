@@ -34,23 +34,31 @@ func (u *OrdersUC) Create(ctx context.Context, order *models.Order) error {
 
 }
 
-func (u *OrdersUC) GetByID(ctx context.Context, orderId string) (*models.Order, error) {
-	if order, ok := u.cache.Get(orderId); ok {
-		u.logger.Infof("order found in cache: %v", order)
-		return order, nil
+func (u *OrdersUC) GetByID(ctx context.Context, orderID string) (*models.Order, error) {
+	if u.cache != nil {
+		if ord, ok := u.cache.Get(orderID); ok && ord != nil {
+			u.logger.Infof("order found in cache: %s", orderID)
+			return ord, nil
+		}
+		u.logger.Infof("order not found in cache: %s", orderID)
 	} else {
-		u.logger.Infof("order not found in cache: %v", orderId)
+		u.logger.Infof("cache is nil, skipping cache lookup")
 	}
-
-	if order, err := u.ordersRepo.GetByID(ctx, orderId); err != nil {
+	ord, err := u.ordersRepo.GetByID(ctx, orderID)
+	if err != nil {
 		u.logger.Errorf("get order error: %v", err)
 		return nil, err
-	} else {
-		u.logger.Infof("order found: %v", order)
-		u.cache.Put(order.OrderUid, order)
-		u.logger.Infof("order cached: %v", order)
-		return order, nil
 	}
+	if ord == nil {
+		u.logger.Infof("order not found in repo: %s", orderID)
+		return nil, nil
+	}
+	if u.cache != nil {
+		u.cache.Put(ord.OrderUid, ord)
+		u.logger.Infof("order cached: %s", ord.OrderUid)
+	}
+
+	return ord, nil
 }
 
 func (u *OrdersUC) PutLastCache(ctx context.Context, count int) error {

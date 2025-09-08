@@ -25,7 +25,8 @@ func (h *OrdersHandler) GetById() gin.HandlerFunc {
 		OrderId string `uri:"order_id" binding:"required"`
 	}
 	type response struct {
-		models.Order
+		Order *models.Order `json:"order,omitempty"`
+		Err   string        `json:"error,omitempty"`
 	}
 	return func(c *gin.Context) {
 		var req request
@@ -35,11 +36,14 @@ func (h *OrdersHandler) GetById() gin.HandlerFunc {
 		}
 		order, err := h.oUC.GetByID(c, req.OrderId)
 		if err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(200, response{*order})
+		if order == nil {
+			c.JSON(404, response{Err: "Not Found"})
+			return
+		}
+		c.JSON(200, response{Order: order})
 		return
 	}
-
 }

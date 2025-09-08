@@ -73,6 +73,9 @@ func (r *ordersRepo) GetByID(ctx context.Context, orderId string) (*models.Order
 
 	err = pgxscan.Get(ctx, tx, &order, getOrder, orderId)
 	if err != nil {
+		if pgxscan.NotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	err = pgxscan.Get(ctx, tx, &order.Payment, getOrderPayments, orderId)
