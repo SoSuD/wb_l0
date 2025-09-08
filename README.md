@@ -1,113 +1,244 @@
-Запускать через docker-compose
+# WB L0 Orders — демо-сервис заказов (Go + Kafka + PostgreSQL + Cache)
 
-после запуска кафки прописать
+Небольшой микросервис на Go, который:
+
+* потребляет сообщения о заказах из Kafka,
+* валидирует и сохраняет их в PostgreSQL (с транзакциями),
+* кэширует последние заказы в памяти для быстрого чтения,
+* при старте восстанавливает кеш из БД,
+* отдает заказ по `order_uid` через HTTP JSON API,
+* имеет простой веб-интерфейс для запроса заказа по ID,
+* корректно завершает работу (graceful shutdown).
+
+> Модель данных заказа — см. `model.json` (в репозитории).
+
+
+## Быстрый старт
+
+### 1) Конфигурация
+
+Все настройки лежат в `./config/config-local.yml`. Укажите там DSN/параметры PostgreSQL, Kafka (brokers, topic, group), порт HTTP-сервера и уровень логов.
+
+### 2) Запуск в Docker
+
+```bash
+docker compose up -d --build
+```
+
+Команда поднимет:
+
+* PostgreSQL (с автоприменением миграций),
+* Kafka (и, при необходимости, ZooKeeper/контроллер),
+* backend-сервис (API + консьюмер),
+* web (Nginx со статикой `web/index.html`).
+
+Проверьте логи:
+
+```bash
+docker compose logs -f api
+```
+
+### 3) Проверка API
+
+Эндпоинт чтения заказа:
 
 ```
-docker exec -it kafka kafka-topics.sh \
-  --create \
-  --topic test-topic \
-  --bootstrap-server localhost:9094 \
-  --partitions 1 \
-  --replication-factor 1
+GET http://localhost:8082/order/<order_uid>
 ```
 
-Пример кода для заполнения кафки:
-```
-import json
-import sys
-from confluent_kafka import Producer
 
-CONFIG = {
-    "brokers": ["localhost:9094"],
-    "topic": "test-topic",
-    "group_id": "1",  # для консьюмера, продюсеру не нужен — просто оставим тут для единообразия
+Пример:
+
+```bash
+curl http://localhost:8082/order/b563feb7b2b84b6test
+```
+
+### 4) Веб-интерфейс
+
+Откройте страницу из контейнера `web` (порт смотрите в `docker-compose.yml` и/или `web/nginx.conf`), например:
+
+```
+http://localhost:8080
+```
+
+Введите `order_uid` и получите данные, которые страница подтягивает из HTTP API.
+
+---
+
+## Отправка тестового сообщения в Kafka
+
+Сервис слушает топик из `config-local.yml`. Отправьте валидный JSON из `model.json`:
+
+
+## Миграции БД
+
+Миграции применяются автоматически при старте (см. `migrations/embed.go` и логи сервиса).
+
+Ручной откат (нужно установленное CLI `migrate`):
+
+```bash
+migrate -path migrations -database "postgres://backend:123123123a@localhost:5432/wb_l0?sslmode=disable" down
+```
+
+
+
+## HTTP API
+
+* `GET /order/{order_uid}` — вернуть заказ в JSON.
+
+  * Источник: in-memory кеш (горячий путь), при отсутствии — чтение из БД с последующим кэшированием.
+  * Ответ соответствует структуре `model.json`:
+
+    * `order` + вложенные `delivery`, `payment`, `items`.
+
+Пример ответа (фрагмент):
+
+```json
+{
+  "order_uid": "b563feb7b2b84b6test",
+  "track_number": "WBILMTESTTRACK",
+  "delivery": { "name": "Test Testov", "...": "..." },
+  "payment": { "transaction": "b563feb7b2b84b6test", "...": "..." },
+  "items": [ { "chrt_id": 9934930, "...": "..." } ],
+  "date_created": "2021-11-26T06:22:19Z",
+  "locale": "en",
+  "...": "..."
 }
-
-DATA = {
-   "order_uid": "b1513f1b712b84b6test",
-   "track_number": "WBILMTESTTRACK",
-   "entry": "WBIL",
-   "delivery": {
-      "name": "Test Testov",
-      "phone": "+9720000000",
-      "zip": "2639809",
-      "city": "Kiryat Mozkin",
-      "address": "Ploshad Mira 15",
-      "region": "Kraiot",
-      "email": "test@gmail.com"
-   },
-   "payment": {
-      "transaction": "b563feb7b2b84b6test",
-      "request_id": "",
-      "currency": "USD",
-      "provider": "wbpay",
-      "amount": 1817,
-      "payment_dt": 1637907727,
-      "bank": "alpha",
-      "delivery_cost": 1500,
-      "goods_total": 317,
-      "custom_fee": 0
-   },
-   "items": [
-      {
-         "chrt_id": 9934930,
-         "track_number": "WBILMTESTTRACK",
-         "price": 453,
-         "rid": "ab4219087a764ae0btest",
-         "name": "Mascaras",
-         "sale": 30,
-         "size": "0",
-         "total_price": 317,
-         "nm_id": 2389212,
-         "brand": "Vivienne Sabo",
-         "status": 202
-      }
-   ],
-   "locale": "en",
-   "internal_signature": "",
-   "customer_id": "test",
-   "delivery_service": "meest",
-   "shardkey": "9",
-   "sm_id": 99,
-   "date_created": "2021-11-26T06:22:19Z",
-   "oof_shard": "1"
-}
-
-def on_delivery(err, msg):
-    if err is not None:
-        print(f"Ошибка доставки: {err}", file=sys.stderr)
-    else:
-        print(f"OK → {msg.topic()}[{msg.partition()}] @ {msg.offset()}")
-
-def main():
-    producer = Producer({
-        "bootstrap.servers": ",".join(CONFIG["brokers"]),
-        # Ниже — опциональные, но полезные настройки:
-        "enable.idempotence": True,     # безопасная доставка без дубликатов
-        "acks": "all",
-        "retries": 3,
-        "linger.ms": 5,
-        "batch.num.messages": 1000,
-    })
-
-    for i in range(1000, 2000):
-        try:
-            orderuid = f"b1513f1b712b84b6{i}"
-            DATA["order_uid"] = orderuid
-            DATA["payment"]["transaction"] = orderuid
-            producer.produce(
-                topic=CONFIG["topic"],
-                value=json.dumps(DATA, ensure_ascii=False).encode("utf-8"),
-                key=DATA.get("order_uid", None),
-                on_delivery=on_delivery,
-            )
-
-        except BufferError as e:
-            print(f"Локальный буфер переполнен: {e}", file=sys.stderr)
-
-    # Обработка очереди событий и ожидание отправки
-    producer.flush(15_000)
-
-if __name__ == "__main__":
-    main()
 ```
+
+
+
+## Архитектура
+
+* **Kafka Consumer** (`internal/kafka`, `internal/orders/consumer.go`): подписка на топик, парсинг JSON, валидация, запись в БД с транзакцией, ACK только после успешного сохранения.
+* **БД**: PostgreSQL, репозиторий `internal/orders/repository` с SQL-запросами и `pg_repository`.
+* **Кеш**: in-memory `map[string]*Order` (`internal/orders/cache`) + синхронизация; прогрев кеша из БД на старте.
+* **HTTP-сервер** (`internal/server`, `internal/orders/delivery/http`): JSON API + маршруты.
+* **Web** (`web/`): простая страница `index.html` под Nginx.
+* **Логирование** (`pkg/logger/zap_logger.go`): zap.
+* **Валидация** (`pkg/validation`): проверка входящих сообщений.
+
+## Производительность и устойчивость
+
+* Горячий путь чтения — из кеша (микросекунды).
+* Повторные запросы того же `order_uid` — существенно быстрее чтения из БД.
+* Сообщения подтверждаются брокеру только после успешной фиксации транзакции в БД.
+* Невалидные сообщения не сохраняются, попадают в логи.
+* При рестарте кеш восстанавливается из БД — сервис сразу готов к обслуживанию чтений.
+
+## Локальный запуск без Docker
+
+1. Настройте `config-local.yml` под локальные хосты/порты.
+2. Примените миграции (или дайте это сделать сервису при старте).
+3. Запустите:
+
+```bash
+go run ./cmd/api
+```
+
+Тесты:
+
+```bash
+go test ./...
+```
+
+
+
+## Структура проекта
+
+```
+.
+├── README.md
+├── cmd
+│   └── api
+│       └── main.go
+├── config
+│   ├── config-local.yml
+│   └── config.go
+├── docker
+│   └── Dockerfile
+├── docker-compose.yml
+├── go.mod
+├── go.sum
+├── internal
+│   ├── kafka
+│   │   ├── consumers.go
+│   │   └── kafka.go
+│   ├── orders
+│   │   ├── cache
+│   │   │   └── cache.go
+│   │   ├── consumer.go
+│   │   ├── delivery
+│   │   │   ├── http
+│   │   │   │   ├── handlers.go
+│   │   │   │   └── routes.go
+│   │   │   └── kafka
+│   │   │       ├── handlers.go
+│   │   │       └── routes.go
+│   │   ├── delivery.go
+│   │   ├── mocks
+│   │   │   └── repository.go
+│   │   ├── pg_repository.go
+│   │   ├── repository
+│   │   │   ├── pg_repository.go
+│   │   │   └── sql_queries.go
+│   │   ├── usecase
+│   │   │   ├── usecase.go
+│   │   │   └── usecase_test.go
+│   │   └── usecase.go
+│   └── server
+│       ├── handlers.go
+│       └── server.go
+├── migrations
+│   ├── 000001_create_initial_tables.down.sql
+│   ├── 000001_create_initial_tables.up.sql
+│   └── embed.go
+├── models
+│   ├── delivery.go
+│   ├── item.go
+│   ├── order.go
+│   └── payment.go
+├── pkg
+│   ├── logger
+│   │   └── zap_logger.go
+│   └── validation
+│       └── validation.go
+└── web
+    ├── Dockerfile
+    ├── index.html
+    └── nginx.conf
+```
+
+---
+
+## Полезные команды
+
+Пересобрать и перезапустить:
+
+```bash
+docker compose up -d --build
+```
+
+Посмотреть логи:
+
+```bash
+docker compose logs -f api
+docker compose logs -f web
+docker compose logs -f postgres
+docker compose logs -f kafka
+```
+
+Остановить и удалить контейнеры/сети:
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Траблшутинг
+
+* **`connection refused` к БД**: проверьте `db.dsn`/порты и что Postgres поднят.
+* **Сообщения не читаются**: убедитесь, что `kafka.brokers`, `topic`, `group_id` совпадают с реальной конфигурацией кластера/compose.
+* **404 по `GET /order/{id}`**: заказа нет ни в кеше, ни в БД — сначала опубликуйте валидное сообщение в Kafka.
+* **Падение на старте**: смотрите логи — нередко проблема в конфиге (неверный DSN/брокер)
